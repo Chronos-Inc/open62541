@@ -19,6 +19,7 @@
 #include "open62541_queue.h"
 #include "ua_securechannel.h"
 
+#include <netinet/in.h>
 #include <string.h>  // memset
 
 #ifndef MSG_NOSIGNAL
@@ -442,7 +443,11 @@ ServerNetworkLayerTCP_start(UA_ServerNetworkLayer *nl, const UA_Logger *logger,
     for(layer->serverSocketsSize = 0;
         layer->serverSocketsSize < FD_SETSIZE && ai != NULL;
         ai = ai->ai_next) {
-        addServerSocket(layer, ai);
+        char ipStr[128];
+        void *ipRaw = ai->ai_family == AF_INET ? (void*)&(((struct sockaddr_in*)(ai->ai_addr))->sin_addr) : (void*)&(((struct sockaddr_in6*)(ai->ai_addr))->sin6_addr);
+        inet_ntop(ai->ai_family, ipRaw, ipStr, ai->ai_addrlen);
+        UA_StatusCode sockRes = addServerSocket(layer, ai);
+        UA_LOG_INFO(layer->logger, UA_LOGCATEGORY_NETWORK, "Setting up socket: addr: %s, ai_family: %d, res: %d", ipStr, ai->ai_family, sockRes);
     }
     UA_freeaddrinfo(res);
     
